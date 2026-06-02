@@ -28,10 +28,15 @@ client.on('reconnect', function () {
     console.log("MQTT Reconnecting...");
 });
 
+// --- KHỞI TẠO BIẾN DỮ LIỆU TOÀN CỤC (SỬA LỖI THIẾU BIẾN) ---
+let allDaysStorage = {}; 
+let currentViewingDate = ""; 
+
 let database = [];
 let totalMassGrams = 0;
 let counts = { red: 0, blue: 0, yellow: 0 };
 let massPerColor = { red: 0, blue: 0, yellow: 0 };
+
 let isRunning = true;
 let isReset = false;
 let flagReset = false;
@@ -41,32 +46,40 @@ let resetTimer = null;
 let monitorPingPong = false;
 let resetWaiting = false;
 
-document.getElementById('exportDate').valueAsDate = new Date();
-loadData();
+// --- KHỞI CHẠY HỆ THỐNG KHI TẢI TRANG (SỬA THỨ TỰ CHẠY HÀM) ---
+const dateInput = document.getElementById('exportDate');
+if (dateInput) {
+    // 1. Đồng bộ ngày hiện hành theo ô chọn ngày HTML
+    currentViewingDate = dateInput.value || new Date().toISOString().split('T')[0];
+    
+    // 2. Tải dữ liệu từ LocalStorage lên trước
+    loadData();
 
-// LẮNG NGHE SỰ KIỆN THAY ĐỔI Ô CHỌN NGÀY
-dateInput.addEventListener('change', function() {
-    currentViewingDate = this.value;
-    console.log(`Thay đổi ngày hiển thị sang: ${currentViewingDate}`);
-    switchDateView(currentViewingDate);
-});
+    // 3. LẮNG NGHE SỰ KIỆN THAY ĐỔI Ô CHỌN NGÀY (CHUYỂN DATA Y NGUYÊN)
+    dateInput.addEventListener('change', function() {
+        currentViewingDate = this.value;
+        console.log(`Thay đổi ngày hiển thị sang: ${currentViewingDate}`);
+        switchDateView(currentViewingDate);
+    });
+}
 
 // HÀM HIỂN THỊ THÔNG BÁO THẢ XUỐNG ĐỘC LẬP
 function showExportNotification(message, isSuccess) {
     const toast = document.getElementById('exportToast');
+    if (!toast) return;
     toast.innerText = message;
     
-    toast.className = "export-notification"; // Reset class
+    toast.className = "export-notification"; 
     if (isSuccess) {
         toast.classList.add('noti-export-success');
     } else {
         toast.classList.add('noti-export-error');
     }
     
-    toast.classList.add('show'); // Thả xuống
+    toast.classList.add('show'); 
     
     setTimeout(() => {
-        toast.classList.remove('show'); // Thu lên sau 3 giây
+        toast.classList.remove('show'); 
     }, 3000);
 }
 
@@ -74,8 +87,15 @@ function receiveData(color, weight) {
     if (!isRunning) return;
     
     const now = new Date();
-    const dateStr = now.toISOString().split('T')[0];
+    const todayStr = now.toISOString().split('T')[0];
     const timeStr = now.toLocaleTimeString();
+
+    // Nếu Web đang mở ở ngày cũ mà có hàng mới chạy qua, ép giao diện về ngày hôm nay
+    if (currentViewingDate !== todayStr) {
+        currentViewingDate = todayStr;
+        if (dateInput) dateInput.value = todayStr;
+        switchDateView(todayStr);
+    }
 
     const year2Dig = now.getFullYear().toString().slice(-2);
     const month2Dig = String(now.getMonth() + 1).padStart(2, '0');
@@ -86,33 +106,33 @@ function receiveData(color, weight) {
 
     const batchId = `B-${year2Dig}${month2Dig}${day2Dig}-${hourSpecific}`;
 
-    const newItem = { date: dateStr, time: timeStr, color: color, weight: weight, batch: batchId };
+    const newItem = { date: todayStr, time: timeStr, color: color, weight: weight, batch: batchId };
     database.push(newItem);
 
     totalMassGrams += weight;
     if(color === "RED") { counts.red++; massPerColor.red += weight; }
     if(color === "BLUE") { counts.blue++; massPerColor.blue += weight; }
     if(color === "YELLOW") { counts.yellow++; massPerColor.yellow += weight; }
+    
     updateUI();
 
     const tbody = document.querySelector("#logTable tbody");
-    const row = `<tr>
-        <td>${newItem.date}</td>
-        <td>${newItem.time}</td>
-        <td>${newItem.color}</td>
-        <td>${newItem.weight}</td>
-        <td>${newItem.batch}</td>
-    </tr>`;
-    tbody.insertAdjacentHTML('afterbegin', row);
+    if (tbody) {
+        const row = `<tr>
+            <td>${newItem.date}</td>
+            <td>${newItem.time}</td>
+            <td>${newItem.color}</td>
+            <td>${newItem.weight}</td>
+            <td>${newItem.batch}</td>
+        </tr>`;
+        tbody.insertAdjacentHTML('afterbegin', row);
+    }
 
     saveData();
 }
 
 function updateUI() {
-    // Đảm bảo totalMassGrams luôn là số trước khi dùng toFixed
     const safeTotalMass = (typeof totalMassGrams === 'number' && !isNaN(totalMassGrams)) ? totalMassGrams : 0;
-    
-    // Kiểm tra xem phần tử HTML có tồn tại không trước khi gán dữ liệu
     const totalElem = document.getElementById('total');
     if (totalElem) {
         totalElem.innerText = safeTotalMass.toFixed(2) + " g";
@@ -146,6 +166,9 @@ function updateUI() {
         if(pieChart) {
             pieChart.style.background = `conic-gradient(var(--danger) 0% ${slice1}%, var(--primary) ${slice1}% ${slice2}%, var(--warning) ${slice2}% 100%)`;
         }
+    } else {
+        if(document.getElementById('ratioText')) document.getElementById('ratioText').innerText = "Đỏ: 0% | Xanh: 0% | Vàng: 0%";
+        if(document.getElementById('pieChart')) document.getElementById('pieChart').style.background = "#ddd";
     }
 }
 
@@ -161,7 +184,6 @@ function handleStop() {
 
 function handleReset() {
     confirmReset();
-
     if(flagReset) {
         flagReset = false;
         client.publish("fromWEB_Mode", "RESET");
@@ -185,24 +207,26 @@ function handleReset() {
 function updateStart() {
     isRunning = true;
     console.log("Hệ thống bắt đầu chạy...");
-
     const notice = document.getElementById('screenNotice');
-    notice.innerText = "THÔNG BÁO: HỆ THỐNG ĐÃ KHỞI ĐỘNG CHẠY!";
-    notice.style.backgroundColor = "#e6f4ea";
-    notice.style.color = "var(--success)";
-    notice.style.borderColor = "var(--success)";
+    if (notice) {
+        notice.innerText = "THÔNG BÁO: HỆ THỐNG ĐÃ KHỞI ĐỘNG CHẠY!";
+        notice.style.backgroundColor = "#e6f4ea";
+        notice.style.color = "var(--success)";
+        notice.style.borderColor = "var(--success)";
+    }
 }
 
 function updateStop() {
     isRunning = false;
     isReset = false;
     console.log("Hệ thống tạm dừng.");
-
     const notice = document.getElementById('screenNotice');
-    notice.innerText = "THÔNG BÁO: HỆ THỐNG ĐÃ TẠM DỪNG HOẠT ĐỘNG!";
-    notice.style.backgroundColor = "#fce8e6";
-    notice.style.color = "var(--danger)";
-    notice.style.borderColor = "var(--danger)";
+    if (notice) {
+        notice.innerText = "THÔNG BÁO: HỆ THỐNG ĐÃ TẠM DỪNG HOẠT ĐỘNG!";
+        notice.style.backgroundColor = "#fce8e6";
+        notice.style.color = "var(--danger)";
+        notice.style.borderColor = "var(--danger)";
+    }
 }
 
 function confirmReset() {
@@ -221,19 +245,22 @@ function updateReset() {
     massPerColor = { red: 0, blue: 0, yellow: 0 };
     
     updateUI();
-    document.getElementById('ratioText').innerText = "Đỏ: 0% | Xanh: 0% | Vàng: 0%";
-    document.getElementById('pieChart').style.background = "#ddd";
-    document.querySelector("#logTable tbody").innerHTML = "";
+    renderTable();
+
     const notice = document.getElementById('screenNotice');
-    notice.innerText = "THÔNG BÁO: ĐÃ XOÁ SẠCH TOÀN BỘ SỐ LIỆU VỀ 0!";
-    notice.style.backgroundColor = "#fef7e0";
-    notice.style.color = "#b06000";
-    notice.style.borderColor = "var(--warning)";
+    if (notice) {
+        notice.innerText = "THÔNG BÁO: ĐÃ XOÁ SẠCH TOÀN BỘ SỐ LIỆU VỀ 0!";
+        notice.style.backgroundColor = "#fef7e0";
+        notice.style.color = "#b06000";
+        notice.style.borderColor = "var(--warning)";
+    }
+    saveData();
 }
 
 function handleExport() {
     const selectedDate = document.getElementById('exportDate').value;
-    const filteredData = database.filter(item => item.date === selectedDate);
+    const dayData = allDaysStorage[selectedDate] || { database: [], totalMassGrams: 0, counts: {red:0,blue:0,yellow:0}, massPerColor: {red:0,blue:0,yellow:0} };
+    const filteredData = dayData.database;
 
     if (filteredData.length === 0) {
         showExportNotification(`Thất bại: Không có dữ liệu của ngày ${selectedDate}!`, false);
@@ -243,32 +270,18 @@ function handleExport() {
     showExportNotification("Đang tải tệp báo cáo lô hàng...", true);
 
     let csvContent = "\ufeff"
-
-    const redMass = filteredData
-    .filter(i => i.color === "RED")
-    .reduce((sum, valWeight) => sum + parseFloat(valWeight.weight),0);
-
-    const blueMass = filteredData
-        .filter(i => i.color === "BLUE")
-        .reduce((sum, valWeight) => sum + parseFloat(valWeight.weight), 0);
-
-    const yellowMass = filteredData
-        .filter(i => i.color === "YELLOW")
-        .reduce((sum, valWeight) => sum + parseFloat(valWeight.weight), 0);
-
-    const totalMass = redMass + blueMass + yellowMass;
+    const redMass = dayData.massPerColor.red || 0;
+    const blueMass = dayData.massPerColor.blue || 0;
+    const yellowMass = dayData.massPerColor.yellow || 0;
+    const totalMass = dayData.totalMassGrams || 0;
 
     csvContent += `TỔNG KẾT NGÀY:,,${selectedDate}\n`; 
     csvContent += `Màu,Đỏ,Xanh,Vàng\n`; 
-    csvContent +=
-    `Khối lượng mỗi màu (g),` +
-    `${redMass.toFixed(2)},` +
-    `${blueMass.toFixed(2)},` +
-    `${yellowMass.toFixed(2)}\n`;
+    csvContent += `Khối lượng mỗi màu (g),${redMass.toFixed(2)},${blueMass.toFixed(2)},${yellowMass.toFixed(2)}\n`;
     csvContent += `Tổng khối lượng (g),${totalMass.toFixed(2)}\n`;
-    
     csvContent += `\n\nBẢNG DỮ LIỆU CHI TIẾT\n`;
     csvContent += `Ngày,Giờ,Màu sắc,Khối lượng (g),Mã Lô hàng\n`;
+    
     filteredData.slice().reverse().forEach(item => {
         csvContent += `${item.date},${item.time},${item.color},${item.weight},${item.batch}\n`;
     });
@@ -287,8 +300,8 @@ function handleExport() {
     }, 500);
 }
 
+// --- LUỒNG LƯU TRỮ VÀ CHUYỂN NGÀY THÔNG MINH ---
 function saveData() {
-    // Đóng gói cục bộ dữ liệu ngày đang chọn xem
     allDaysStorage[currentViewingDate] = {
         database: database,
         totalMassGrams: totalMassGrams,
@@ -296,7 +309,6 @@ function saveData() {
         massPerColor: massPerColor
     };
 
-    // Lưu cục dữ liệu tổng và trạng thái máy
     const systemState = {
         allDaysStorage: allDaysStorage,
         isRunning: isRunning,
@@ -308,7 +320,6 @@ function saveData() {
 function loadData() {
     const savedData = localStorage.getItem("iotData_v2");
     if(!savedData) {
-        // Nếu dùng lần đầu chưa có data v2, tạo cấu trúc rỗng cho hôm nay
         switchDateView(currentViewingDate);
         return;
     }
@@ -319,7 +330,6 @@ function loadData() {
         isRunning = data.isRunning !== undefined ? data.isRunning : false;
         isReset = data.isReset !== undefined ? data.isReset : false;
         
-        // Đưa giao diện về ngày hiển thị hiện hành (hôm nay)
         switchDateView(currentViewingDate);
 
         if(isRunning) {
@@ -335,7 +345,6 @@ function loadData() {
 }
 
 function switchDateView(targetDate) {
-    // Nếu ngày đích chưa có bản ghi nào trong bộ nhớ, tự động gán rỗng (xuất phát từ 0)
     if (!allDaysStorage[targetDate]) {
         allDaysStorage[targetDate] = {
             database: [],
@@ -345,16 +354,13 @@ function switchDateView(targetDate) {
         };
     }
 
-    // Trích xuất dữ liệu của ngày mục tiêu gán vào bộ biến điều khiển UI
     const dayData = allDaysStorage[targetDate];
     database = dayData.database || [];
     totalMassGrams = dayData.totalMassGrams || 0;
     counts = dayData.counts || { red: 0, blue: 0, yellow: 0 };
     massPerColor = dayData.massPerColor || { red: 0, blue: 0, yellow: 0 };
 
-    // Cập nhật lên màn hình các khối số lượng và biểu đồ tròn
     updateUI();
-    // Vẽ lại bảng dữ liệu lịch sử nhật ký của riêng ngày đó
     renderTable();
 }
 
@@ -363,7 +369,6 @@ function renderTable() {
     if (!tableBody) return;
     tableBody.innerHTML = ""; 
 
-    // Hiển thị từ mới nhất đến cũ nhất
     database.slice().reverse().forEach(item => {
         const row = `<tr>
             <td>${item.date}</td>
@@ -383,15 +388,13 @@ client.on('message', function (topic, message) {
         try {
             const data = JSON.parse(message.toString());
             console.log("Parsed data:", data);
-            const color = data.Color;
-            const weight = data.Sload;
-            receiveData(color, parseFloat(weight));
+            receiveData(data.Color, parseFloat(data.Sload));
         }catch (error) {
             console.error("JSON error:", error);
         }
     }
     if(topic === "toWEB_Mode") {
-        let msg = message.toString(); 
+        let msg = message.toString().trim(); 
         if(msg === "STARTED") {
             updateStart();
             saveData(); 
@@ -410,19 +413,13 @@ client.on('message', function (topic, message) {
 });
 
 setInterval(() => {
-    if(!client.connected) {
-        return;
-    }
-    if (!resetWaiting) {
-         monitorPingPong = true;
-    }
+    if(!client.connected) return;
+    if (!resetWaiting) monitorPingPong = true;
     client.publish("fromWEB_Mode", "PING");
 }, 3000);
 
 setInterval(() => {
-    if(!monitorPingPong) {
-        return;
-    }
+    if(!monitorPingPong) return;
     if(Date.now() - lastPongTime > 10000) {
         console.warn("STM32 OFFLINE! Kiểm tra kết nối và khởi động lại thiết bị nếu cần!");
     }
