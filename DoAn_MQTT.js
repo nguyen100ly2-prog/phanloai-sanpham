@@ -1,3 +1,4 @@
+// --- 1. KHỞI TẠO KẾT NỐI MQTT ---
 const client = mqtt.connect(
 'wss://3d949df5092f4e10aea3a539a9faa670.s1.eu.hivemq.cloud:8884/mqtt',
 {
@@ -28,7 +29,7 @@ client.on('reconnect', function () {
     console.log("MQTT Reconnecting...");
 });
 
-// --- KHỞI TẠO BIẾN DỮ LIỆU TOÀN CỤC (SỬA LỖI THIẾU BIẾN) ---
+// --- 2. KHAI BÁO BIẾN TOÀN CỤC (ĐÃ THÊM BỘ LƯU TRỮ THEO NGÀY) ---
 let allDaysStorage = {}; 
 let currentViewingDate = ""; 
 
@@ -36,7 +37,6 @@ let database = [];
 let totalMassGrams = 0;
 let counts = { red: 0, blue: 0, yellow: 0 };
 let massPerColor = { red: 0, blue: 0, yellow: 0 };
-
 let isRunning = true;
 let isReset = false;
 let flagReset = false;
@@ -46,16 +46,23 @@ let resetTimer = null;
 let monitorPingPong = false;
 let resetWaiting = false;
 
-// --- KHỞI CHẠY HỆ THỐNG KHI TẢI TRANG (SỬA THỨ TỰ CHẠY HÀM) ---
+// --- 3. KHỞI CHẠY ĐỒNG BỘ BAN ĐẦU KHI TẢI TRANG ---
 const dateInput = document.getElementById('exportDate');
-if (dateInput) {
-    // 1. Đồng bộ ngày hiện hành theo ô chọn ngày HTML
-    currentViewingDate = dateInput.value || new Date().toISOString().split('T')[0];
-    
-    // 2. Tải dữ liệu từ LocalStorage lên trước
-    loadData();
+const tzOffset = (new Date()).getTimezoneOffset() * 60000; 
+const localISOTime = (new Date(Date.now() - tzOffset)).toISOString().split('T')[0];
 
-    // 3. LẮNG NGHE SỰ KIỆN THAY ĐỔI Ô CHỌN NGÀY (CHUYỂN DATA Y NGUYÊN)
+if (dateInput) {
+    dateInput.value = localISOTime;
+    currentViewingDate = localISOTime;
+} else {
+    currentViewingDate = localISOTime;
+}
+
+// Gọi hàm loadData ngay sau khi xác định được ngày
+loadData();
+
+// LẮNG NGHE SỰ KIỆN THAY ĐỔI Ô CHỌN NGÀY VÀ ĐỔI DỮ LIỆU THỜI GIAN THỰC
+if (dateInput) {
     dateInput.addEventListener('change', function() {
         currentViewingDate = this.value;
         console.log(`Thay đổi ngày hiển thị sang: ${currentViewingDate}`);
@@ -69,28 +76,29 @@ function showExportNotification(message, isSuccess) {
     if (!toast) return;
     toast.innerText = message;
     
-    toast.className = "export-notification"; 
+    toast.className = "export-notification"; // Reset class
     if (isSuccess) {
         toast.classList.add('noti-export-success');
     } else {
         toast.classList.add('noti-export-error');
     }
     
-    toast.classList.add('show'); 
+    toast.classList.add('show'); // Thả xuống
     
     setTimeout(() => {
-        toast.classList.remove('show'); 
+        toast.classList.remove('show'); // Thu lên sau 3 giây
     }, 3000);
 }
 
+// HÀM XỬ LÝ NHẬN SẢN PHẨM MỚI TỪ MQTT
 function receiveData(color, weight) {
     if (!isRunning) return;
     
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
+    const todayStr = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
     const timeStr = now.toLocaleTimeString();
 
-    // Nếu Web đang mở ở ngày cũ mà có hàng mới chạy qua, ép giao diện về ngày hôm nay
+    // SANG NGÀY MỚI HOẶC CHẠY XUYÊN ĐÊM: Tự động nhảy giao diện về ngày mới, reset bộ đếm hiển thị về 0
     if (currentViewingDate !== todayStr) {
         currentViewingDate = todayStr;
         if (dateInput) dateInput.value = todayStr;
@@ -113,7 +121,6 @@ function receiveData(color, weight) {
     if(color === "RED") { counts.red++; massPerColor.red += weight; }
     if(color === "BLUE") { counts.blue++; massPerColor.blue += weight; }
     if(color === "YELLOW") { counts.yellow++; massPerColor.yellow += weight; }
-    
     updateUI();
 
     const tbody = document.querySelector("#logTable tbody");
@@ -184,6 +191,7 @@ function handleStop() {
 
 function handleReset() {
     confirmReset();
+
     if(flagReset) {
         flagReset = false;
         client.publish("fromWEB_Mode", "RESET");
@@ -207,6 +215,7 @@ function handleReset() {
 function updateStart() {
     isRunning = true;
     console.log("Hệ thống bắt đầu chạy...");
+
     const notice = document.getElementById('screenNotice');
     if (notice) {
         notice.innerText = "THÔNG BÁO: HỆ THỐNG ĐÃ KHỞI ĐỘNG CHẠY!";
@@ -220,6 +229,7 @@ function updateStop() {
     isRunning = false;
     isReset = false;
     console.log("Hệ thống tạm dừng.");
+
     const notice = document.getElementById('screenNotice');
     if (notice) {
         notice.innerText = "THÔNG BÁO: HỆ THỐNG ĐÃ TẠM DỪNG HOẠT ĐỘNG!";
@@ -246,7 +256,7 @@ function updateReset() {
     
     updateUI();
     renderTable();
-
+    
     const notice = document.getElementById('screenNotice');
     if (notice) {
         notice.innerText = "THÔNG BÁO: ĐÃ XOÁ SẠCH TOÀN BỘ SỐ LIỆU VỀ 0!";
@@ -257,6 +267,7 @@ function updateReset() {
     saveData();
 }
 
+// HÀM XUẤT FILE CSV THEO NGÀY ĐƯỢC CHỌN TRONG ALLDAYSSTORAGE
 function handleExport() {
     const selectedDate = document.getElementById('exportDate').value;
     const dayData = allDaysStorage[selectedDate] || { database: [], totalMassGrams: 0, counts: {red:0,blue:0,yellow:0}, massPerColor: {red:0,blue:0,yellow:0} };
@@ -270,6 +281,7 @@ function handleExport() {
     showExportNotification("Đang tải tệp báo cáo lô hàng...", true);
 
     let csvContent = "\ufeff"
+
     const redMass = dayData.massPerColor.red || 0;
     const blueMass = dayData.massPerColor.blue || 0;
     const yellowMass = dayData.massPerColor.yellow || 0;
@@ -279,9 +291,9 @@ function handleExport() {
     csvContent += `Màu,Đỏ,Xanh,Vàng\n`; 
     csvContent += `Khối lượng mỗi màu (g),${redMass.toFixed(2)},${blueMass.toFixed(2)},${yellowMass.toFixed(2)}\n`;
     csvContent += `Tổng khối lượng (g),${totalMass.toFixed(2)}\n`;
+    
     csvContent += `\n\nBẢNG DỮ LIỆU CHI TIẾT\n`;
     csvContent += `Ngày,Giờ,Màu sắc,Khối lượng (g),Mã Lô hàng\n`;
-    
     filteredData.slice().reverse().forEach(item => {
         csvContent += `${item.date},${item.time},${item.color},${item.weight},${item.batch}\n`;
     });
@@ -300,7 +312,7 @@ function handleExport() {
     }, 500);
 }
 
-// --- LUỒNG LƯU TRỮ VÀ CHUYỂN NGÀY THÔNG MINH ---
+// --- 4. HÀM ĐIỀU KHIỂN ĐỔI NGÀY VÀ LƯU TRỮ NÂNG CAO ---
 function saveData() {
     allDaysStorage[currentViewingDate] = {
         database: database,
@@ -381,6 +393,7 @@ function renderTable() {
     });
 }
 
+// --- 5. LẮNG NGHE MQTT VÀ XỬ LÝ MESSAGE ---
 client.on('message', function (topic, message) {
     console.log('Received topic [', topic, '] message:', message.toString());
     
@@ -388,7 +401,9 @@ client.on('message', function (topic, message) {
         try {
             const data = JSON.parse(message.toString());
             console.log("Parsed data:", data);
-            receiveData(data.Color, parseFloat(data.Sload));
+            const color = data.Color;
+            const weight = data.Sload;
+            receiveData(color, parseFloat(weight));
         }catch (error) {
             console.error("JSON error:", error);
         }
@@ -412,14 +427,22 @@ client.on('message', function (topic, message) {
     }
 });
 
+// TIMER GỬI LỆNH PING GIỮ KẾT NỐI VỚI STM32
 setInterval(() => {
-    if(!client.connected) return;
-    if (!resetWaiting) monitorPingPong = true;
+    if(!client.connected) {
+        return;
+    }
+    if (!resetWaiting) {
+         monitorPingPong = true;
+    }
     client.publish("fromWEB_Mode", "PING");
 }, 3000);
 
+// TIMER KIỂM TRA ĐỘ TRỄ PONG ĐỂ PHÁT HIỆN OFFLINE
 setInterval(() => {
-    if(!monitorPingPong) return;
+    if(!monitorPingPong) {
+        return;
+    }
     if(Date.now() - lastPongTime > 10000) {
         console.warn("STM32 OFFLINE! Kiểm tra kết nối và khởi động lại thiết bị nếu cần!");
     }
