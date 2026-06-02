@@ -1,0 +1,15 @@
+{
+    "name": "4_2_doan",
+    "version": "1.0.0",
+    "description": "",
+    "main": "DoAn_MQTT.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "author": "",
+    "license": "ISC",
+    "type": "module",
+    "dependencies": {
+    "mqtt": "^5.15.1"
+  }
+}

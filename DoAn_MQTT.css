@@ -1,0 +1,151 @@
+:root {
+    --primary: #1a73e8;
+    --success: #34a853;
+    --danger: #ea4335;
+    --warning: #fbbc04;
+    --dark: #202124;
+    --bg: #f4f7f6;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg);
+    margin: 0;
+    padding: 20px;
+    color: var(--dark);
+}
+
+/* --- THANH THÔNG BÁO THẢ XUỐNG ĐỘC LẬP KHI XUẤT FILE --- */
+.export-notification {
+    position: fixed;
+    top: -70px; /* Ẩn phía trên màn hình */
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 14px 35px;
+    border-radius: 0 0 10px 10px;
+    font-weight: bold;
+    color: white;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.25);
+    z-index: 99999;
+    transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    text-align: center;
+    min-width: 350px;
+    font-size: 14px;
+}
+.export-notification.show {
+    top: 0; /* Đẩy xuống mép đỉnh màn hình */
+}
+.noti-export-success { background-color: var(--success); }
+.noti-export-error { background-color: var(--danger); }
+
+.container {
+    max-width: 1200px;
+    margin: auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+/* --- HEADER & BỘ LỌC NGÀY --- */
+.header {
+    grid-column: 1 / span 2;
+    background: var(--primary);
+    color: white;
+    padding: 20px;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.header h1 { margin: 0; }
+.header p { margin: 5px 0 0; opacity: 0.9; }
+
+.filter-box {
+    grid-column: 1 / span 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: white;
+    padding: 15px 25px;
+    border-radius: 12px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.filter-inputs { display: flex; align-items: center; gap: 15px; }
+
+/* --- CHỈ SỐ GIÁM SÁT --- */
+.metrics-container {
+    grid-column: 1 / span 2;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+}
+
+.stat-card {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    text-align: center;
+    border-bottom: 5px solid var(--success);
+}
+
+.stat-card h3 { margin: 0; font-size: 14px; color: #5f6368; text-transform: uppercase; }
+.stat-card p { margin: 10px 0 0; font-size: 24px; font-weight: bold; }
+.stat-card .stat-sub { margin-top: 8px; font-size: 13px; color: #5f6368; }
+
+/* --- KHU VỰC THẺ CARD --- */
+.card {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.card.text-center { text-align: center; }
+
+h2 { border-left: 5px solid var(--primary); padding-left: 10px; font-size: 18px; margin-top: 0; }
+.status-alert {
+    padding: 10px;
+    border-radius: 6px;
+    text-align: center;
+    font-weight: bold;
+    margin-bottom: 15px;
+    background-color: #e6f4ea;
+    color: var(--success);
+    border: 1px solid var(--success);
+    transition: all 0.3s ease;
+}
+
+.btn {
+    padding: 12px 20px;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.btn-export { background: var(--success); color: white; }
+
+.control-group {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 15px;
+}
+.btn-start { background: var(--success); color: white; }
+.btn-stop { background: var(--danger); color: white; }
+.btn-reset { background: #5f6368; color: white; }
+
+.btn:hover { opacity: 0.9; }
+
+input[type="date"] {
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+
+.table-section { grid-column: 1 / span 2; max-height: 400px; overflow-y: auto; }
+table { width: 100%; border-collapse: collapse; }
+th { background: #f8f9fa; padding: 12px; position: sticky; top: 0; border-bottom: 2px solid #ddd; }
+td { padding: 12px; text-align: center; border-bottom: 1px solid #eee; }

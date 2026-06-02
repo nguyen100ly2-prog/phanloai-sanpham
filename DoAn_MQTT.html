@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Đóng Gói Thông Minh - IoT Dashboard</title>
+    <link rel="stylesheet" href="DoAn_MQTT.css">
+</head>
+<body>
+
+<div id="exportToast" class="export-notification"></div>
+
+<div class="container">
+    <div class="header">
+        <h1 style="margin:0">HỆ THỐNG GIÁM SÁT ĐÓNG GÓI THÔNG MINH</h1>
+        <p style="margin:5px 0 0; opacity:0.9">Phân loại màu sắc • Định lượng khối lượng • Xuất báo cáo lô hàng</p>
+    </div>
+
+    <div class="filter-box">
+        <div class="filter-inputs">
+            <label><b>📅 Chọn ngày báo cáo:</b></label>
+            <input type="date" id="exportDate">
+        </div>
+        <button class="btn btn-export" onclick="handleExport()">📥 XUẤT TRANG TÍNH CHI TIẾT (.CSV)</button>
+    </div>
+
+    <div class="metrics-container">
+        <div class="stat-card"><h3>Tổng khối lượng</h3><p id="total">0.00 g</p></div>
+        <div class="stat-card" style="border-color: var(--danger)"><h3>Đỏ (SP)</h3><p id="count-red">0</p>
+          <div class="stat-sub">Khối lượng: <span id="mass-red">0</span> g</div>
+        </div>
+        <div class="stat-card" style="border-color: var(--primary)"><h3>Xanh (SP)</h3><p id="count-blue">0</p>
+          <div class="stat-sub">Khối lượng: <span id="mass-blue">0</span> g</div>
+        </div>
+        <div class="stat-card" style="border-color: var(--warning)"><h3>Vàng (SP)</h3><p id="count-yellow">0</p>
+          <div class="stat-sub">Khối lượng: <span id="mass-yellow">0</span> g</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Điều khiển hệ thống</h2>
+         <div id="screenNotice" class="status-alert">
+            HỆ THỐNG ĐANG HOẠT ĐỘNG BÌNH THƯỜNG
+        </div>
+        <div class="control-group">
+            <button class="btn btn-start" onclick="handleStart()">BẮT ĐẦU</button>
+            <button class="btn btn-stop" onclick="handleStop()">TẠM DỪNG</button>
+            <button class="btn btn-reset" onclick="handleReset()">RESET</button>
+        </div>
+    </div>
+
+    <div class="card" style="text-align: center;">
+        <h2>Tỉ lệ cân nặng</h2>
+        <div id="pieChart" style="width:150px; height:150px; border-radius:50%; background:conic-gradient(#ddd); margin: 20px auto;"></div>
+        <p id="ratioText">Đỏ: 0% | Xanh: 0% | Vàng: 0%</p>
+    </div>
+
+    <div class="card table-section">
+        <h2>Nhật ký vận hành thời gian thực</h2>
+        <table id="logTable">
+            <thead>
+                <tr>
+                    <th>Ngày</th>
+                    <th>Giờ</th>
+                    <th>Màu sắc</th>
+                    <th>Khối lượng (g)</th>
+                    <th>Mã Lô</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+<script src="DoAn_MQTT.js"></script>
+
+</body>
+</html>
