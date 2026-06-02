@@ -44,6 +44,13 @@ let resetWaiting = false;
 document.getElementById('exportDate').valueAsDate = new Date();
 loadData();
 
+// LẮNG NGHE SỰ KIỆN THAY ĐỔI Ô CHỌN NGÀY
+dateInput.addEventListener('change', function() {
+    currentViewingDate = this.value;
+    console.log(`Thay đổi ngày hiển thị sang: ${currentViewingDate}`);
+    switchDateView(currentViewingDate);
+});
+
 // HÀM HIỂN THỊ THÔNG BÁO THẢ XUỐNG ĐỘC LẬP
 function showExportNotification(message, isSuccess) {
     const toast = document.getElementById('exportToast');
@@ -281,34 +288,83 @@ function handleExport() {
 }
 
 function saveData() {
-    const data = {
+    // Đóng gói cục bộ dữ liệu ngày đang chọn xem
+    allDaysStorage[currentViewingDate] = {
         database: database,
         totalMassGrams: totalMassGrams,
         counts: counts,
-        massPerColor: massPerColor,
-        isRunning,
-        isReset
+        massPerColor: massPerColor
     };
-    localStorage.setItem("iotData", JSON.stringify(data));
+
+    // Lưu cục dữ liệu tổng và trạng thái máy
+    const systemState = {
+        allDaysStorage: allDaysStorage,
+        isRunning: isRunning,
+        isReset: isReset
+    };
+    localStorage.setItem("iotData_v2", JSON.stringify(systemState));
 }
 
 function loadData() {
-    const savedData = localStorage.getItem("iotData");
-    if(!savedData) return;
+    const savedData = localStorage.getItem("iotData_v2");
+    if(!savedData) {
+        // Nếu dùng lần đầu chưa có data v2, tạo cấu trúc rỗng cho hôm nay
+        switchDateView(currentViewingDate);
+        return;
+    }
 
-    const data = JSON.parse(savedData);
-    database = data.database || [];
-    totalMassGrams = data.totalMassGrams || 0;
-    counts = data.counts || { red: 0, blue: 0, yellow: 0 };
-    massPerColor = data.massPerColor || { red: 0, blue: 0, yellow: 0 };
-    isRunning = data.isRunning || false;
-    isReset = data.isReset || false;
+    try {
+        const data = JSON.parse(savedData);
+        allDaysStorage = data.allDaysStorage || {};
+        isRunning = data.isRunning !== undefined ? data.isRunning : false;
+        isReset = data.isReset !== undefined ? data.isReset : false;
+        
+        // Đưa giao diện về ngày hiển thị hiện hành (hôm nay)
+        switchDateView(currentViewingDate);
+
+        if(isRunning) {
+            updateStart();
+        } else if(!isRunning && !isReset) {
+            updateStop();
+        } else if(isReset) {
+            updateReset();
+        }
+    } catch(e) {
+        console.error("Lỗi cấu trúc dữ liệu LocalStorage:", e);
+    }
+}
+
+function switchDateView(targetDate) {
+    // Nếu ngày đích chưa có bản ghi nào trong bộ nhớ, tự động gán rỗng (xuất phát từ 0)
+    if (!allDaysStorage[targetDate]) {
+        allDaysStorage[targetDate] = {
+            database: [],
+            totalMassGrams: 0,
+            counts: { red: 0, blue: 0, yellow: 0 },
+            massPerColor: { red: 0, blue: 0, yellow: 0 }
+        };
+    }
+
+    // Trích xuất dữ liệu của ngày mục tiêu gán vào bộ biến điều khiển UI
+    const dayData = allDaysStorage[targetDate];
+    database = dayData.database || [];
+    totalMassGrams = dayData.totalMassGrams || 0;
+    counts = dayData.counts || { red: 0, blue: 0, yellow: 0 };
+    massPerColor = dayData.massPerColor || { red: 0, blue: 0, yellow: 0 };
+
+    // Cập nhật lên màn hình các khối số lượng và biểu đồ tròn
     updateUI();
+    // Vẽ lại bảng dữ liệu lịch sử nhật ký của riêng ngày đó
+    renderTable();
+}
 
+function renderTable() {
     const tableBody = document.querySelector("#logTable tbody");
+    if (!tableBody) return;
     tableBody.innerHTML = ""; 
 
-    database.forEach(item => {
+    // Hiển thị từ mới nhất đến cũ nhất
+    database.slice().reverse().forEach(item => {
         const row = `<tr>
             <td>${item.date}</td>
             <td>${item.time}</td>
@@ -318,14 +374,6 @@ function loadData() {
         </tr>`;
         tableBody.insertAdjacentHTML('beforeend', row); 
     });
-
-    if(isRunning) {
-        updateStart();
-    } else if(!isRunning && !isReset) {
-        updateStop();
-    } else if(isReset) {
-        updateReset();
-    }
 }
 
 client.on('message', function (topic, message) {
