@@ -51,11 +51,10 @@ const dateInput = document.getElementById('exportDate');
 const tzOffset = (new Date()).getTimezoneOffset() * 60000; 
 const localISOTime = (new Date(Date.now() - tzOffset)).toISOString().split('T')[0];
 
+currentViewingDate = localISOTime; 
+
 if (dateInput) {
     dateInput.value = localISOTime;
-    currentViewingDate = localISOTime;
-} else {
-    currentViewingDate = localISOTime;
 }
 
 // Gọi hàm loadData ngay sau khi xác định được ngày
