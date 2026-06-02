@@ -446,3 +446,28 @@ setInterval(() => {
         console.warn("STM32 OFFLINE! Kiểm tra kết nối và khởi động lại thiết bị nếu cần!");
     }
 }, 500);
+
+// CHẶN CHUỘT PHẢI
+document.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
+    alert("Hệ thống đã được bảo mật! Không thể sử dụng chuột phải.");
+});
+
+// CHẶN PHÍM F12, CTRL+SHIFT+I, CTRL+SHIFT+C, CTRL+U (XEM SOURCE)
+document.addEventListener('keydown', function(e) {
+    // Chặn F12
+    if (e.key === "F12") {
+        e.preventDefault();
+        return false;
+    }
+    // Chặn Ctrl + Shift + I hoặc Ctrl + Shift + C
+    if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'C' || e.key === 'i' || e.key === 'c')) {
+        e.preventDefault();
+        return false;
+    }
+    // Chặn Ctrl + U (Xem nguồn trang)
+    if (e.ctrlKey && (e.key === 'U' || e.key === 'u')) {
+        e.preventDefault();
+        return false;
+    }
+});
